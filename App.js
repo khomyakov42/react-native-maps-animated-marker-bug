@@ -6,11 +6,11 @@ import {StyleSheet, Text, View, Button, StatusBar, Animated} from 'react-native'
 export default class App extends React.Component {
 
    state = {
-      marker: null,
+      markers: null,
       text: ' '
    };
 
-   position = {longitude: 0, latitude: 0};
+   region = {longitude: 90, latitude: 0, longitudeDelta: 90, latitudeDelta: 45};
 
    handleAppendMarker() {
       if (this.state.marker) {
@@ -18,7 +18,7 @@ export default class App extends React.Component {
       }
 
       const animatedValue = new Animated.Value(0);
-      const size = 40;
+      const size = 20;
       const styles = {
          marker: {
             opacity: animatedValue
@@ -40,6 +40,7 @@ export default class App extends React.Component {
       };
 
       this.setState({text: 'animation started'});
+
       Animated.timing(animatedValue, {
          toValue: 1,
          duration: 3000,
@@ -48,26 +49,49 @@ export default class App extends React.Component {
          this.setState({text: 'animation complete'});
       });
 
+      const markers = [];
+      const width = 4;
+      const height = 6;
+
+      for (let i = 0; i < width; ++i) {
+         const lngStep = this.region.longitudeDelta / width;
+         const latStep = this.region.latitudeDelta / height;
+
+         const lng = this.region.longitude - this.region.longitudeDelta / 2 + (lngStep * i) + lngStep / 2;
+         for (let j = 0; j < height; ++j) {
+            const lat = this.region.latitude - this.region.latitudeDelta / 2 + (latStep * j) - latStep / 2;
+            const anchor = {x: 0.5, y: 0.5};
+            const coordinate = {latitude: lat, longitude: lng};
+
+            markers.push(
+               <Expo.MapView.Marker.Animated
+                  key={i * height + j}
+                  style={styles.marker}
+                  coordinate={coordinate}
+                  anchor={anchor}
+               >
+                  <View style={styles.wrapper}>
+                     <Animated.View style={styles.content}/>
+                  </View>
+               </Expo.MapView.Marker.Animated>
+            )
+         }
+      }
+
       this.setState({
-         marker: (
-            <Expo.MapView.Marker.Animated style={styles.marker} coordinate={this.position} anchor={{x: 0.5, y: 0.5}}>
-               <View style={styles.wrapper}>
-                  <Animated.View style={styles.content}/>
-               </View>
-            </Expo.MapView.Marker.Animated>
-         )
-      })
+         markers: markers
+      });
    }
 
    handleRemoveMarker() {
-      if (!this.state.marker) {
+      if (!this.state.markers) {
          return;
       }
-      this.setState({marker: null});
+      this.setState({markers: null});
    }
 
    handleChangeRegion(region) {
-      this.position = {longitude: region.longitude, latitude: region.latitude};
+      this.region = region;
    }
 
    render() {
@@ -76,14 +100,15 @@ export default class App extends React.Component {
             <View style={{flex: 1}}>
                <Expo.MapView
                   style={{...StyleSheet.absoluteFillObject}}
+                  initialRegion={this.region}
                   onRegionChange={this.handleChangeRegion.bind(this)}
                >
-                  {this.state.marker}
+                  {this.state.markers}
                </Expo.MapView>
             </View>
             <View style={{flexDirection: 'row', justifyContent: 'space-around', margin: 10}}>
-               <Button onPress={this.handleAppendMarker.bind(this)} title={'append'} disabled={!!this.state.marker}/>
-               <Button onPress={this.handleRemoveMarker.bind(this)} title={'remove'} disabled={!this.state.marker}/>
+               <Button onPress={this.handleAppendMarker.bind(this)} title={'append'} disabled={!!this.state.markers}/>
+               <Button onPress={this.handleRemoveMarker.bind(this)} title={'remove'} disabled={!this.state.markers}/>
             </View>
             <View style={{alignItems: 'center'}}>
                <Text>{this.state.text}</Text>
