@@ -1,29 +1,61 @@
 import React from 'react';
 import Expo from 'expo';
-import {StyleSheet, Text, View, Button, StatusBar, Animated} from 'react-native';
+import {observer} from 'mobx-react'
+import {action, observable} from 'mobx'
+import {StyleSheet, Text, View, StatusBar, Animated} from 'react-native';
 
 
+const INITIAL_REGION = {longitude: 90, latitude: 0, longitudeDelta: 90, latitudeDelta: 45};
+
+
+@observer
 export default class App extends React.Component {
 
-   state = {
-      markers: null,
-      text: ' '
-   };
+   @observable
+   markers = [];
 
-   region = {longitude: 90, latitude: 0, longitudeDelta: 90, latitudeDelta: 45};
+   @observable
+   text = ' ';
 
-   handleAppendMarker() {
-      if (this.state.marker) {
-         return;
+   constructor(props, context) {
+      super(props, context);
+      this.coordinates = [];
+
+      const width = 4;
+      const height = 8;
+      for (let i = 0; i < width; ++i) {
+         const lngStep = INITIAL_REGION.longitudeDelta / width;
+         const latStep = INITIAL_REGION.latitudeDelta / height;
+
+         const lng = INITIAL_REGION.longitude - INITIAL_REGION.longitudeDelta / 2 + (lngStep * i) + lngStep / 2;
+         for (let j = 0; j < height; ++j) {
+            const lat = INITIAL_REGION.latitude - INITIAL_REGION.latitudeDelta / 2 + (latStep * j) - latStep / 2;
+            const coordinate = {latitude: lat, longitude: lng};
+            this.coordinates.push(coordinate);
+         }
       }
 
+   }
+
+   componentDidMount() {
+      const loop = action(() => {
+         this.markers.splice(0);
+         this.text = 'empty';
+         setTimeout(action(() => {
+            this.createAnimatedMarkers(loop);
+            this.text = 'render';
+         }), 2000);
+      });
+      loop();
+   }
+
+
+   createAnimatedMarkers(callback) {
       const animatedValue = new Animated.Value(0);
       const size = 20;
       const styles = {
          marker: {
-            opacity: animatedValue
-         },
-         wrapper: {
+            opacity: animatedValue,
             width: size, height: size
          },
          content: {
@@ -39,59 +71,27 @@ export default class App extends React.Component {
          }
       };
 
-      this.setState({text: 'animation started'});
-
       Animated.timing(animatedValue, {
          toValue: 1,
-         duration: 3000,
+         duration: 3500,
          useNativeDriver: true
-      }).start(() => {
-         this.setState({text: 'animation complete'});
-      });
+      }).start(callback);
 
       const markers = [];
-      const width = 4;
-      const height = 6;
-
-      for (let i = 0; i < width; ++i) {
-         const lngStep = this.region.longitudeDelta / width;
-         const latStep = this.region.latitudeDelta / height;
-
-         const lng = this.region.longitude - this.region.longitudeDelta / 2 + (lngStep * i) + lngStep / 2;
-         for (let j = 0; j < height; ++j) {
-            const lat = this.region.latitude - this.region.latitudeDelta / 2 + (latStep * j) - latStep / 2;
-            const anchor = {x: 0.5, y: 0.5};
-            const coordinate = {latitude: lat, longitude: lng};
-
-            markers.push(
-               <Expo.MapView.Marker.Animated
-                  key={i * height + j}
-                  style={styles.marker}
-                  coordinate={coordinate}
-                  anchor={anchor}
-               >
-                  <View style={styles.wrapper}>
-                     <Animated.View style={styles.content}/>
-                  </View>
-               </Expo.MapView.Marker.Animated>
-            )
-         }
+      for (let coordinate of this.coordinates) {
+         markers.push(
+            <Expo.MapView.Marker.Animated
+               key={markers.length + 1}
+               style={styles.marker}
+               coordinate={coordinate}
+               anchor={{x: 0.5, y: 0.5}}
+            >
+               <View style={styles.content}/>
+            </Expo.MapView.Marker.Animated>
+         )
       }
 
-      this.setState({
-         markers: markers
-      });
-   }
-
-   handleRemoveMarker() {
-      if (!this.state.markers) {
-         return;
-      }
-      this.setState({markers: null});
-   }
-
-   handleChangeRegion(region) {
-      this.region = region;
+      this.markers.push(...markers);
    }
 
    render() {
@@ -100,18 +100,13 @@ export default class App extends React.Component {
             <View style={{flex: 1}}>
                <Expo.MapView
                   style={{...StyleSheet.absoluteFillObject}}
-                  initialRegion={this.region}
-                  onRegionChange={this.handleChangeRegion.bind(this)}
+                  initialRegion={INITIAL_REGION}
                >
-                  {this.state.markers}
+                  {this.markers}
                </Expo.MapView>
             </View>
-            <View style={{flexDirection: 'row', justifyContent: 'space-around', margin: 10}}>
-               <Button onPress={this.handleAppendMarker.bind(this)} title={'append'} disabled={!!this.state.markers}/>
-               <Button onPress={this.handleRemoveMarker.bind(this)} title={'remove'} disabled={!this.state.markers}/>
-            </View>
             <View style={{alignItems: 'center'}}>
-               <Text>{this.state.text}</Text>
+               <Text>{this.text}</Text>
             </View>
          </View>
       )
